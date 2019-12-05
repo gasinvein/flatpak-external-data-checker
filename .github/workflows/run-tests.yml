@@ -14,7 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - name: docker build
+      - name: Build container
         run: docker build -t flatpak-external-data-checker .
-      - name: run tests
-        run: docker run -v $PWD:/opt -w /opt flatpak-external-data-checker python3 -m unittest discover --verbose --buffer
+      - name: Run tests in container
+        run: docker run -v $PWD:/opt -w /opt flatpak-external-data-checker python3-coverage run -m unittest discover --verbose --buffer
+      - name: Install Coveralls
+        run: |
+          sudo apt-get install -y python3-setuptools
+          sudo pip3 install coveralls
+      - name: Submit code coverage to Coveralls.io
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: coveralls

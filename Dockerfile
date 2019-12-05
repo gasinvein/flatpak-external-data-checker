@@ -7,6 +7,7 @@ RUN apt-get update \
       gir1.2-glib-2.0 \
       gir1.2-json-1.0 \
       python3-apt \
+      python3-coverage \
       python3-gi \
       python3-github \
       python3-ruamel.yaml \
