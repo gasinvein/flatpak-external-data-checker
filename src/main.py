@@ -24,6 +24,7 @@
 
 import argparse
 import contextlib
+import json
 import logging
 import os
 import subprocess
@@ -161,14 +162,38 @@ def open_pr(subject, body, branch):
     base = "master"
     head = "{}:{}".format(repo.owner.login, branch)
     pr_message = ((body or "") + "\n\n" + DISCLAIMER).strip()
-    # Include closed PRs – if the maintainer has closed our last PR, we don't want to
+
+    if os.path.isfile("flathub.json"):
+        with open("flathub.json") as f:
+            repocfg = json.load(f)
+            automerge = repocfg.get("automerge-flathubbot-prs", False)
+
+    # If the maintainer has closed our last PR, we don't want to
     # open another one.
-    for pr in origin_repo.get_pulls(state="all", base=base, head=head):
-        log.info(
-            "Found existing %s PR: %s",
-            "merged" if pr.is_merged() else pr.state,
-            pr.html_url,
-        )
+    prs = origin_repo.get_pulls(state="all", base=base, head=head)
+    breakpoint()
+    if not automerge:
+        for pr in prs:
+            log.info(
+                "Found existing %s PR: %s",
+                "merged" if pr.is_merged() else pr.state,
+                pr.html_url,
+            )
+            return
+
+    if origin_repo.permissions.push and automerge:
+        closed_prs = [pr for pr in prs if pr.state == "closed"]
+        for pr in closed_prs:
+            log.info("Found closed PR: %s", pr.html_url)
+            return
+
+        open_prs = [pr for pr in prs if pr.state == "open"]
+        for pr in open_prs:
+            log.info("Found open PR: %s", pr.html_url)
+            pr_commit = pr.head.repo.get_commit(pr.head.sha)
+            if pr_commit.get_combined_status() == "success" and pr.mergeable:
+                pr.merge(merge_method='rebase')
+
         return
 
     check_call(("git", "push", "-u", remote, branch))
