@@ -275,12 +275,21 @@ class ExternalGitRef(
 
         refs = {r: c for c, r in (l.split() for l in git_stdout.splitlines())}
 
+        branch_is_tag = False
         if self.tag is not None:
             got_commit = self._get_tagged_commit(refs, self.tag)
         elif self.branch is not None:
-            got_commit = refs[f"refs/heads/{self.branch}"]
+            try:
+                got_commit = self._get_tagged_commit(refs, self.branch)
+                branch_is_tag = True
+            except KeyError:
+                got_commit = refs[f"refs/heads/{self.branch}"]
         else:
             got_commit = refs["HEAD"]
+
+        if branch_is_tag:
+            # Tag is specified as branch
+            return self._replace(commit=got_commit, tag=self.branch, branch=None)
 
         return self._replace(commit=got_commit)
 
@@ -360,6 +369,9 @@ class ExternalGitRepoSource(ExternalGitRepo):
                 self.source["tag"] = self.new_version.tag
             if self.new_version.branch is not None:
                 self.source["branch"] = self.new_version.branch
+            if "tag" in self.source and "branch" in self.source:
+                # having both tag and branch is invalid, remove branch
+                self.source.pop("branch")
 
         if self.state == ExternalData.State.ADDED:
             self.source_parent.append(self.source)
