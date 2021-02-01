@@ -38,6 +38,17 @@ class GitChecker(Checker):
             external_data.state = ExternalGitRepo.State.BROKEN
             return
 
+        if (
+            external_data.current_version.commit is None
+            # We check remote tag here to make sure we don't miss tag-as-branch case
+            and remote_version.tag is None
+        ):
+            log.info(
+                "Skipping source %s, not pinned to tag or commit",
+                external_data.filename,
+            )
+            return
+
         if external_data.current_version.matches(remote_version):
             log.debug(
                 "Remote git repo %s is still valid", external_data.current_version.url
